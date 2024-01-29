@@ -25,9 +25,11 @@ stringWithoutEscapes         ([\t\x20-\x21\x23-\x5B\x5D-\x7E])*
 
 %x STRINGMODE
 %x BYTENUMBER
+%x STRINGMODEAFTERNULLTERMINATOR
+
 
 numericEscape (\\x[2-6]([0-9]|[a-f]|[A-F])|\\x7([0-9]|[a-e]|[A-E])|\\x09|\\x0[dD]|\\x0[aA])
-escape ({numericEscape}|(\\[0tnr\"\\]))
+escape ({numericEscape}|(\\[tnr\"\\]))
 failedNumericEscape (\\x[^\n\r\"]?[^\n\r\"]?)
 failedEscape ((\\.)|{failedNumericEscape})
 
@@ -62,16 +64,25 @@ continue                        {return CONTINUE;}
 {number}                        {return NUM;}
 \"                              {BEGIN(STRINGMODE);return STRING;}
 
-<STRINGMODE>{escape}  return 36;
-<STRINGMODE>{stringWithoutEscapes}  return STRING;
-<STRINGMODE>(\") { BEGIN(INITIAL); return 37; }
+<STRINGMODE>{escape}                    return 36;
+<STRINGMODE>{stringWithoutEscapes}      return STRING;
+<STRINGMODE>\\0                         BEGIN(STRINGMODEAFTERNULLTERMINATOR);
+
+<STRINGMODE>(\")                        { BEGIN(INITIAL); return 37; }
+
+<STRINGMODEAFTERNULLTERMINATOR>(({escape}|[\\0\t\x20-\x21\x23-\x5B\x5D-\x7E])*\")             { BEGIN(INITIAL); return 37; }
+
  /* string errors */
-<STRINGMODE><<EOF>>   { printf("Error unclosed string\n"); exit(0); }
-<STRINGMODE>\\?[\n\r] { printf("Error unclosed string\n"); exit(0); }
-<STRINGMODE>{failedEscape} {
-     printf("Error undefined escape sequence %s\n",yytext+1);
-     exit(0); 
-     }
+
+<STRINGMODE,STRINGMODEAFTERNULLTERMINATOR><<EOF>>    { printf("Error unclosed string\n"); exit(0); }
+
+<STRINGMODE,STRINGMODEAFTERNULLTERMINATOR>\\?[\n\r]   { printf("Error unclosed string\n"); exit(0); }
+
+<STRINGMODE,STRINGMODEAFTERNULLTERMINATOR>{failedEscape}                   {
+          printf("Error undefined escape sequence %s\n",yytext+1);
+          exit(0); 
+          }
+
 [\r\n\x20\t]                      {}
 .                               {printf("Error %c\n", *yytext); exit(0);}
 

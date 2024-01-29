@@ -81,10 +81,10 @@ void StringMode(int token)
 				//std::cout<<"	";
 				string_vec.push_back("\"");
 			}
-			if(yytext[1]=='0'){
+			/*if(yytext[1]=='0'){
 				//std::cout<<"	";
 				string_vec.push_back("\0");
-			}
+			}*/
 			if(yytext[1]=='x'){
 				char tmp[2];
 				tmp[0]=yytext[2];
