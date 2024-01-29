@@ -19,8 +19,8 @@ identifier      [a-zA-Z][a-zA-Z0-9]*
 number          0|[1-9][0-9]*
 byteNumber      0|1[0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5]
 byteSuccesors   [\x20\a\b\e\f\n\r\t\v]*
-stringWithoutNull          (([\x20-\x21\x23-\x5B\x5D-\x7E])*(\\\\|\\\"|\\n|\\r|\\t|(\\x[2-6]([0-9]|[a-f]|[A-F])|\\x7([0-9]|[a-e]|[A-E]))|\\x0D|\\x0A|\\x09)*)*
-stringWithNull          (([\x20-\x21\x23-\x5B\x5D-\x7E])*(\\\\|\\\"|\\n|\\r|\\t|\\0|(\\x[2-6]([0-9]|[a-f]|[A-F])|\\x7([0-9]|[a-e]|[A-E]))|\\x0D|\\x0A|\\x09)*)*
+stringWithoutEscapes         ([\t\x20-\x21\x23-\x5B\x5D-\x7E])*
+
 
 
 %x STRINGMODE
@@ -63,7 +63,7 @@ continue                        {return CONTINUE;}
 \"                              {BEGIN(STRINGMODE);return STRING;}
 
 <STRINGMODE>{escape}  return 36;
-<STRINGMODE>[^\"\r\t\n\\]*  return STRING;
+<STRINGMODE>{stringWithoutEscapes}  return STRING;
 <STRINGMODE>(\") { BEGIN(INITIAL); return 37; }
  /* string errors */
 <STRINGMODE><<EOF>>   { printf("Error unclosed string\n"); exit(0); }
