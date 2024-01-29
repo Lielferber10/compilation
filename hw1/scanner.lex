@@ -26,7 +26,7 @@ stringWithNull          (([\x20-\x21\x23-\x5B\x5D-\x7E])*(\\\\|\\\"|\\n|\\r|\\t|
 %x STRINGMODE
 %x BYTENUMBER
 
-numericEscape (\\x[0-7][0-9A-Fa-f])
+numericEscape (\\x[2-6]([0-9]|[a-f]|[A-F])|\\x7([0-9]|[a-e]|[A-E]))
 escape ({numericEscape}|(\\[0tnr\"\\]))
 failedNumericEscape (\\x[^\n\r\"]?[^\n\r\"]?)
 failedEscape ((\\.)|{failedNumericEscape})
