@@ -2,7 +2,7 @@
 #include "tokens.hpp"
 #include <string.h>
 
-char* aString = (char*)malloc(1025);
+
 %}
 
 %option yylineno
@@ -19,19 +19,24 @@ identifier      [a-zA-Z][a-zA-Z0-9]*
 number          0|[1-9][0-9]*
 byteNumber      0|1[0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5]
 byteSuccesors   [\x20\a\b\e\f\n\r\t\v]*
-stringWithoutNull          (([\x20-\x21\x23-\x5B\x5D-\x7E])*(\\\\|\\\"|\\n|\\r|\\t|(\\x[0-9]|\\x[0-9A-Fa-f][0-9A-Fa-f]))*)*
-stringWithNull          (([\x20-\x21\x23-\x5B\x5D-\x7E])*(\\\\|\\\"|\\n|\\r|\\t|\\0|(\\x[0-9]|\\x[0-9A-Fa-f][0-9A-Fa-f]))*)*
+stringWithoutNull          (([\x20-\x21\x23-\x5B\x5D-\x7E])*(\\\\|\\\"|\\n|\\r|\\t|printable)*)*
+stringWithNull          (([\x20-\x21\x23-\x5B\x5D-\x7E])*(\\\\|\\\"|\\n|\\r|\\t|\\0|printable)*)*
 
-%x INSTRING
-%x STRINGEND
+
+%x STRINGMODE
 %x BYTENUMBER
-%x INSTRINGAFTERNULLTERMINATOR
+
+numericEscape (\\x[0-7][0-9A-Fa-f])
+escape ({numericEscape}|(\\[0tnr\"\\]))
+failedNumericEscape (\\x[^\n\r\"]?[^\n\r\"]?)
+failedEscape ((\\.)|{failedNumericEscape})
 
 %%
 
 void                            {return VOID;}
 int                             {return INT;}
 byte                            {return BYTE;}
+b                               {return B;}
 bool                            {return BOOL;}
 and                             {return AND;}
 or                              {return OR;}
@@ -45,11 +50,6 @@ while                           {return WHILE;}
 break                           {return BREAK;}
 continue                        {return CONTINUE;}
 {identifier}                    {return ID;}
-{byteNumber}                    {BEGIN(BYTENUMBER); return NUM;}
-<BYTENUMBER>b                   {BEGIN(INITIAL); return B;}
-<BYTENUMBER>{byteSuccesors}     {BEGIN(INITIAL); return 0;/*do nothing*/}
-<BYTENUMBER>{number}            {BEGIN(INITIAL); return NUM;} /*we reach here iff the last lexeme is 0*/
-<BYTENUMBER>.                   {BEGIN(INITIAL); return -3;}
 ;                               {return SC;}
 \(                              {return LPAREN;}
 \)                              {return RPAREN;}
@@ -60,16 +60,19 @@ continue                        {return CONTINUE;}
 {binOp}                         {return BINOP;}
 {comment}                       {return COMMENT;}
 {number}                        {return NUM;}
-\"                              BEGIN(INSTRING);
+\"                              {BEGIN(STRINGMODE);return STRING;}
 
-<INSTRING>{stringWithoutNull}                       {BEGIN(INSTRINGAFTERNULLTERMINATOR); strcpy(aString, yytext);}
-<INSTRING>.|[\r\n]                                  {BEGIN(INITIAL); return -2;}
-<INSTRINGAFTERNULLTERMINATOR>{stringWithNull}       BEGIN(STRINGEND);
-<INSTRINGAFTERNULLTERMINATOR>\"                     {BEGIN(INITIAL); return STRING;}
-<INSTRINGAFTERNULLTERMINATOR>.|[\r\n]               {BEGIN(INITIAL); return -2;}
-<STRINGEND>\"                                       {BEGIN(INITIAL); return STRING;}
-<STRINGEND>.|[\r\n]                                 {BEGIN(INITIAL); return -2;}
-[\r\n\x20]                      {return 0;}
-.                               {return -1;}
+<STRINGMODE>{escape}  return 36;
+<STRINGMODE>[^\"\r\t\n\\]*  return STRING;
+<STRINGMODE>(\") { BEGIN(INITIAL); return 37; }
+ /* string errors */
+<STRINGMODE><<EOF>>   { printf("Error unclosed string\n"); exit(0); }
+<STRINGMODE>\\?[\n\r] { printf("Error unclosed string\n"); exit(0); }
+<STRINGMODE>{failedEscape} {
+     printf("Error undefined escape sequence %s\n",yytext+1);
+     exit(0); 
+     }
+[\r\n\x20\t]                      {}
+.                               {printf("Error %c\n", *yytext); exit(0);}
 
 %%

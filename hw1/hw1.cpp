@@ -1,145 +1,154 @@
 #include "tokens.hpp"
 #include <iostream>
+#include <vector>
 
-extern char* aString;
+
+char const tokenNames[29][10] = {
+	"empty",
+	"VOID",
+	"INT",
+	"BYTE",
+	"B",
+	"BOOL",
+	"AND",
+	"OR",
+	"NOT",
+	"TRUE",
+	"FALSE",
+	"RETURN",
+	"IF",
+	"ELSE",
+	"WHILE",
+	"BREAK",
+	"CONTINUE",
+	"SC",
+	"LPAREN",
+	"RPAREN",
+	"LBRACE",
+	"RBRACE",
+	"ASSIGN",
+	"RELOP",
+	"BINOP",
+	"COMMENT",
+	"ID",
+	"NUM",
+	"STRING"};
+
+//functions to deal with '/xFF' chars
+int Dehex(char c) {
+    if( c >= '0' && c <= '9')
+        return c - '0';
+    if( c >= 'a' && c <= 'f')
+        return c - 'a' + 10;
+    if( c >= 'A' && c <= 'F')
+        return c - 'A' + 10;
+    printf("error :(\n"); exit(1);
+}
+int StringToHex(char str[2])
+{
+    int hexnum = Dehex(str[0])*16 + Dehex(str[1]);
+    return hexnum;
+}
+
+void StringMode(int token)
+{
+	std::vector<std::string> string_vec;
+	//std::cout<<yylineno<<" STRING ";
+	for( token = yylex(); token != 37;token = yylex()){
+
+		if(token==28){
+			//std::cout<<yytext;
+			string_vec.push_back(yytext);
+		}
+		if (token == 36){
+			if(yytext[1]=='n'){
+				//std::cout<<std::endl;
+				string_vec.push_back("\n");
+			}
+			if(yytext[1]=='r'){
+				//std::cout<<"\r";
+				string_vec.push_back("\r");
+			}
+			if(yytext[1]=='t'){
+				//std::cout<<"	";
+				string_vec.push_back("\t");
+			}
+			if(yytext[1]=='\\'){
+				//std::cout<<"	";
+				string_vec.push_back("\\");
+			}
+			if(yytext[1]=='\"'){
+				//std::cout<<"	";
+				string_vec.push_back("\"");
+			}
+			if(yytext[1]=='0'){
+				//std::cout<<"	";
+				string_vec.push_back("\0");
+			}
+			if(yytext[1]=='x'){
+				char tmp[2];
+				tmp[0]=yytext[2];
+				tmp[1]=yytext[3];
+						//     std::cout<<"tmp: "<<StringToHex(tmp)<<std::endl;
+				//printf("%c",StringToHex(tmp));
+				char c=StringToHex(tmp);
+				std::string str(1,c);
+				string_vec.push_back(str);
+
+			}
+
+					//std::cout<<"l1 "<<yytext[1]<<std::endl;
+		}
+				
+
+				//if (token == 37) break;
+	}
+	std::cout<<yylineno<<" STRING ";
+	std::vector<std::string>::iterator iter;
+	iter=string_vec.begin();
+	for(;iter!=string_vec.end();iter++){
+		std::cout<<*iter;
+	}
+	string_vec.clear();
+	std::cout<<std::endl;
+
+}
+
+void CommentMode(int token)
+{
+	std::cout<< yylineno <<" " <<tokenNames[token] << " //"  << std::endl;
+}
 
 int main()
 {
 	int token;
-	while(token = yylex())
+	while (token = yylex())
 	{
-		char* s;
-		if(token == 1)
-		{
-			s = (char*)"VOID";
+		if (token== 25){// comment
+			CommentMode(token);
+			continue;
 		}
-		else if(token == 2)
-		{
-			s = (char*)"INT";
-		}
-		else if(token == 3)
-		{
-			s = (char*)"BYTE";
-		}
-		else if(token == 4)
-		{
-			s = (char*)"B";
-		}
-		else if(token == 5)
-		{
-			s = (char*)"BOOL";
-		}
-		else if(token == 6)
-		{
-			s = (char*)"AND";
-		}
-		else if(token == 7)
-		{
-			s = (char*)"OR";
-		}
-		else if(token == 8)
-		{
-			s = (char*)"NOT";
-		}
-		else if(token == 9)
-		{
-			s = (char*)"TRUE";
-		}
-		else if(token == 10)
-		{
-			s = (char*)"FALSE";
-		}
-		else if(token == 11)
-		{
-			s = (char*)"RETURN";
-		}
-		else if(token == 12)
-		{
-			s = (char*)"IF";
-		}
-		else if(token == 13)
-		{
-			s = (char*)"ELSE";
-		}
-		else if(token == 14)
-		{
-			s = (char*)"WHILE";
-		}
-		else if(token == 15)
-		{
-			s = (char*)"BREAK";
-		}
-		else if(token == 16)
-		{
-			s = (char*)"CONTINUE";
-		}
-		else if(token == 17)
-		{
-			s = (char*)"SC";
-		}
-		else if(token == 18)
-		{
-			s = (char*)"LPAREN";
-		}
-		else if(token == 19)
-		{
-			s = (char*)"RPAREN";
-		}
-		else if(token == 20)
-		{
-			s = (char*)"LBRACE";
-		}
-		else if(token == 21)
-		{
-			s = (char*)"RBRACE";
-		}
-		else if(token == 22)
-		{
-			s = (char*)"ASSIGN";
-		}
-		else if(token == 23)
-		{
-			s = (char*)"RELOP";
-		}
-		else if(token == 24)
-		{
-			s = (char*)"BINOP";
-		}
-		else if(token == 25)
-		{
-			s = (char*)"COMMENT";
-		}
-		else if(token == 26)
-		{
-			s = (char*)"ID";
-		}
-		else if(token == 27)
-		{
-			s = (char*)"NUM";
-		}
-		else if(token == 28)
-		{
-			s = (char*)"STRING";
-		}
-		else if(token == -1)
-		{
-			s = (char*)"error";
-		}
-		else if(token == -2)
-		{
-			s = (char*)"error (inside string)";
-		}
-		else if(token == -3)
-		{
-			s = (char*)"incorrect use of a byte number!";
-		}
-		
-	
-		
 
+		if (token== 28) { // begin string mode
 
-		
-	}	
-	free(aString);
+			StringMode(token);
+			continue;
+		}
+		std::cout << yylineno <<" " <<tokenNames[token]<< " " <<yytext << std::endl; // default
+	}
 	return 0;
+}
+
+int main2()
+{
+    int token;
+	while (token = yylex())
+	{
+        std::cout<<yylineno<<" txt: "<<yytext<<" token: "<<token<<std::endl;
+       
+
+    }
+
+    return 0;
+
 }
