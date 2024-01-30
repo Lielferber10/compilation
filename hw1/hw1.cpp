@@ -54,7 +54,8 @@ void StringMode(int token)
 {
 	std::vector<std::string> string_vec;
 	//std::cout<<yylineno<<" STRING ";
-	for( token = yylex(); token != 37;token = yylex()){
+	for( token = yylex(); token != 37 && token != 38;token = yylex())
+	{
 
 		if(token==28){
 			//std::cout<<yytext;
@@ -103,15 +104,28 @@ void StringMode(int token)
 
 				//if (token == 37) break;
 	}
+
+	//we read a string and saw \0 - We'll continue to read and verify the correctness of the string suffix. it should take two iteration
+	if(token == 38)
+	{
+		
+		for( token = yylex(); token != 39 && token != 40;token = yylex());
+		
+		if(token == 40)
+		{
+			exit(0);
+		}
+		
+	}
+
 	std::cout<<yylineno<<" STRING ";
 	std::vector<std::string>::iterator iter;
 	iter=string_vec.begin();
 	for(;iter!=string_vec.end();iter++){
-		std::cout<<*iter;
+	std::cout<<*iter;
 	}
 	string_vec.clear();
 	std::cout<<std::endl;
-
 }
 
 void CommentMode(int token)

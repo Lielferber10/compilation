@@ -66,24 +66,37 @@ continue                        {return CONTINUE;}
 
 <STRINGMODE>{escape}                    return 36;
 <STRINGMODE>{stringWithoutEscapes}      return STRING;
-<STRINGMODE>\\0                         BEGIN(STRINGMODEAFTERNULLTERMINATOR);
+<STRINGMODE>\\0                         {BEGIN(STRINGMODEAFTERNULLTERMINATOR); return 38; }
 
 <STRINGMODE>(\")                        { BEGIN(INITIAL); return 37; }
 
-<STRINGMODEAFTERNULLTERMINATOR>(({escape}|[\\0\t\x20-\x21\x23-\x5B\x5D-\x7E])*\")             { BEGIN(INITIAL); return 37; }
+<STRINGMODEAFTERNULLTERMINATOR>({escape}|\\0|[\t\x20-\x21\x23-\x5B\x5D-\x7E])*            {}
+
+<STRINGMODEAFTERNULLTERMINATOR>\"        {BEGIN(INITIAL); return 39;}
 
  /* string errors */
 
-<STRINGMODE,STRINGMODEAFTERNULLTERMINATOR><<EOF>>    { printf("Error unclosed string\n"); exit(0); }
+<STRINGMODEAFTERNULLTERMINATOR><<EOF>>    { printf("Error unclosed string\n"); return 40; }
 
-<STRINGMODE,STRINGMODEAFTERNULLTERMINATOR>\\?[\n\r]   { printf("Error unclosed string\n"); exit(0); }
+<STRINGMODEAFTERNULLTERMINATOR>\\?[\n\r]   { printf("Error unclosed string\n"); return 40; }
 
-<STRINGMODE,STRINGMODEAFTERNULLTERMINATOR>{failedEscape}                   {
+<STRINGMODEAFTERNULLTERMINATOR>{failedEscape}                   {
           printf("Error undefined escape sequence %s\n",yytext+1);
-          exit(0); 
-          }
+          return 40;
+        }
 
-[\r\n\x20\t]                      {}
+
+
+<STRINGMODE><<EOF>>    { printf("Error unclosed string\n"); exit(0); }
+
+<STRINGMODE>\\?[\n\r]   { printf("Error unclosed string\n"); exit(0); }
+
+<STRINGMODE>{failedEscape}                   {
+          printf("Error undefined escape sequence %s\n",yytext+1);
+          exit(0);
+        }
+
+[\a\b\e\f\v\r\n\x20\t]                      {}
 .                               {printf("Error %c\n", *yytext); exit(0);}
 
 %%
