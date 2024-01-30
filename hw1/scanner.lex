@@ -24,7 +24,6 @@ stringWithoutEscapes         ([\t\x20-\x21\x23-\x5B\x5D-\x7E])*
 
 
 %x STRINGMODE
-%x BYTENUMBER
 %x STRINGMODEAFTERNULLTERMINATOR
 
 
@@ -96,7 +95,9 @@ continue                        {return CONTINUE;}
           exit(0);
         }
 
-[\a\b\e\f\v\r\n\x20\t]                      {}
-.                               {printf("Error %c\n", *yytext); exit(0);}
+<STRINGMODE,STRINGMODEAFTERNULLTERMINATOR>.            {printf("Error %s\n", yytext); exit(0);}
+
+[\r\n\x20\t]                      {}
+.                               {printf("Error %s\n", yytext); exit(0);}
 
 %%
