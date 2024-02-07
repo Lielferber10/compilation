@@ -62,43 +62,9 @@ continue                        {return CONTINUE;}
 {binOp}                         {return BINOP;}
 {comment}                       {return COMMENT;}
 {number}                        {return NUM;}
-\"                              {BEGIN(STRINGMODE);return STRING;}
-
-<STRINGMODE>{escape}                    return 36;
-<STRINGMODE>{stringWithoutEscapes}      return STRING;
-<STRINGMODE>\\0                         {BEGIN(STRINGMODEAFTERNULLTERMINATOR); return 38; }
-
-<STRINGMODE>(\")                        { BEGIN(INITIAL); return 37; }
-
-<STRINGMODEAFTERNULLTERMINATOR>({escape}|\\0|[\t\x20-\x21\x23-\x5B\x5D-\x7E])*            {}
-
-<STRINGMODEAFTERNULLTERMINATOR>\"        {BEGIN(INITIAL); return 39;}
-
- /* string errors */
-
-<STRINGMODEAFTERNULLTERMINATOR><<EOF>>    { printf("Error unclosed string\n"); return 40; }
-
-<STRINGMODEAFTERNULLTERMINATOR>\\?[\n\r]   { printf("Error unclosed string\n"); return 40; }
-
-<STRINGMODEAFTERNULLTERMINATOR>{failedEscape}                   {
-          printf("Error undefined escape sequence %s\n",yytext+1);
-          return 40;
-        }
-
-
-
-<STRINGMODE><<EOF>>    { printf("Error unclosed string\n"); exit(0); }
-
-<STRINGMODE>\\?[\n\r]   { printf("Error unclosed string\n"); exit(0); }
-
-<STRINGMODE>{failedEscape}                   {
-          printf("Error undefined escape sequence %s\n",yytext+1);
-          exit(0);
-        }
-
-<STRINGMODE,STRINGMODEAFTERNULLTERMINATOR>.            {printf("Error %s\n", yytext); exit(0);}
+\"([^\n\r\"\\]|\\[rnt"\\])+\"     {return STRING;}
 
 [\r\n\x20\t]                      {}
-.                               {printf("Error %s\n", yytext); exit(0);}
+.                               {output::errorLex(yylineno); exit(0);}
 
 %%

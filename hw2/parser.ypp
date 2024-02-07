@@ -6,6 +6,8 @@
 	using namespace std;
 
 	extern int yylex();
+	extern char* yytext;
+	extern int yylineno;
 	int yyerror(const char * message);
 %}
 
@@ -51,7 +53,7 @@ OpenStatement : IF LPAREN Exp RPAREN Statement {output::printProductionRule(10);
 | WHILE LPAREN Exp RPAREN OpenStatement {output::printProductionRule(12);};
 
 ClosedStatement : SimpleStatement
-|IF LPAREN Exp RPAREN ClosedStatement ELSE ClosedStatement {output::printProductionRule(11);};
+| IF LPAREN Exp RPAREN ClosedStatement ELSE ClosedStatement {output::printProductionRule(11);};
 | WHILE LPAREN Exp RPAREN ClosedStatement {output::printProductionRule(12);};
 
 
@@ -97,6 +99,7 @@ int main()
 
 int yyerror(const char * message)
 {
-	cout<<"Parse error: "<<message<<endl;
+	output::errorSyn(yylineno);
+	//cout<<"Parse error: "<<message<<endl;
 	exit(0);
 }
