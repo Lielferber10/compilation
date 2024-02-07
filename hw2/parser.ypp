@@ -28,31 +28,48 @@
 %right ASSIGN;
 %left OR;
 %left AND;
-%right IF;
-%right ELSE;
+%left RELOP
+%left BINOP
+%right NOT
+%nonassoc IF;
+%nonassoc ELSE;
 %left LPAREN RPAREN LBRACE RBRACE
 
 
 %%
 
 Program : Statements {output::printProductionRule(1);};
+
 Statements : Statement {output::printProductionRule(2);};
 | Statements Statement {output::printProductionRule(3);};
-Statement : LBRACE Statements RBRACE {output::printProductionRule(4);};
+
+Statement: OpenStatement
+| ClosedStatement
+
+OpenStatement : IF LPAREN Exp RPAREN Statement {output::printProductionRule(10);};
+| IF LPAREN Exp RPAREN ClosedStatement ELSE OpenStatement {output::printProductionRule(11);};
+| WHILE LPAREN Exp RPAREN OpenStatement {output::printProductionRule(12);};
+
+ClosedStatement : SimpleStatement
+|IF LPAREN Exp RPAREN ClosedStatement ELSE ClosedStatement {output::printProductionRule(11);};
+| WHILE LPAREN Exp RPAREN ClosedStatement {output::printProductionRule(12);};
+
+
+SimpleStatement : LBRACE Statements RBRACE {output::printProductionRule(4);};
 | Type ID SC {output::printProductionRule(5);};
 | Type ID ASSIGN Exp SC {output::printProductionRule(6);};
 | ID ASSIGN Exp SC {output::printProductionRule(7);};
 | Call SC {output::printProductionRule(8);};
 | RETURN SC {output::printProductionRule(9);};
-| IF LPAREN Exp RPAREN Statement {output::printProductionRule(10);};
-| IF LPAREN Exp RPAREN Statement ELSE Statement {output::printProductionRule(11);};
-| WHILE LPAREN Exp RPAREN Statement {output::printProductionRule(12);};
 | BREAK SC {output::printProductionRule(13);};
 | CONTINUE SC {output::printProductionRule(14);};
+
 Call : ID LPAREN Exp RPAREN {output::printProductionRule(15);};
+
 Type : INT {output::printProductionRule(16);};
 | BYTE {output::printProductionRule(17);};
 | BOOL {output::printProductionRule(18);};
+
 Exp : LPAREN Exp RPAREN {output::printProductionRule(19);};
 | Exp BINOP Exp {output::printProductionRule(20);};
 | ID {output::printProductionRule(21);};
