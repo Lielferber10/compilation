@@ -50,10 +50,9 @@ continue                        {return CONTINUE;}
 \-                              {return MINUS;}
 \*                              {return MULT;}
 \/                              {return DEV;}
-{comment}                       {return COMMENT;}
 {number}                        {return NUM;}
 {string}                        {return STRING;}
-[\r\n\x20\t]                    {}
+([\r\n\x20\t]|{comment})        {}
 .                               {output::errorLex(yylineno); exit(0);}
 
 %%
