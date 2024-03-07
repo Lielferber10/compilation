@@ -1,9 +1,12 @@
 %{
-	#include "output.hpp"
+	#include "hw3_output.hpp"
+	#include "Node.hpp"
+	#include "symbol_table.hpp"
 	#include <iostream>
 	#include <stdlib.h>
 
 	using namespace std;
+	using namespace output;
 
 	extern int yylex();
 	extern char* yytext;
@@ -40,17 +43,30 @@
 
 %%
 
-Program : Statements 										{output::printProductionRule(1);};
+Program :{Symbol_Table sym=Symbol_Table();} Statements 		{output::printProductionRule(1);};
 
 
 Statements : Statement 										{output::printProductionRule(2);};
 | Statements Statement 										{output::printProductionRule(3);};
 
 
-Statement : LBRACE Statements RBRACE 						{output::printProductionRule(4);};
-| Type ID SC 												{output::printProductionRule(5);};
-| Type ID ASSIGN Exp SC 									{output::printProductionRule(6);};
-| ID ASSIGN Exp SC 											{output::printProductionRule(7);};
+Statement : LBRACE NT Statements RBRACE 						{$$=$3;
+																 sym.close_table();};
+| Type ID SC 												{$$=new Node(yylineno,std::move($2->id))
+															 $$->type=$1->type;
+															 sym.insert_node($$);
+															};
+| Type ID ASSIGN Exp SC 									{$$=new exp($1,$2,$4,yylineno);
+															 sym.insert_node($$);
+															 };
+| ID ASSIGN Exp SC 											{Entry *entry=sym.find_entry($1->text);
+															 if(entry==nullptr || entry->is_func)
+															 {
+																errorUndef(yylineno,$1->text);
+																exit(0);
+															 }
+															 $$=new Exp(entry->type,$1,$3,yylineno);
+															 };
 | Call SC 													{output::printProductionRule(8);};
 | RETURN SC 												{output::printProductionRule(9);};
 | IF LPAREN Exp RPAREN Statement 							{output::printProductionRule(10);};
@@ -68,25 +84,65 @@ Type : INT 													{output::printProductionRule(16);};
 | BOOL 														{output::printProductionRule(18);};
 
 
-Exp : LPAREN Exp RPAREN 									{output::printProductionRule(19);};
-| Exp PLUS Exp 												{output::printProductionRule(20);};
-| Exp MINUS Exp 											{output::printProductionRule(20);};
-| Exp MULT Exp 												{output::printProductionRule(20);};
-| Exp DEV Exp 												{output::printProductionRule(20);};
-| ID 														{output::printProductionRule(21);};
-| Call 														{output::printProductionRule(22);};
-| NUM 														{output::printProductionRule(23);};
-| NUM B 													{output::printProductionRule(24);};
-| STRING												 	{output::printProductionRule(25);};
-| TRUE 														{output::printProductionRule(26);};
-| FALSE 													{output::printProductionRule(27);};
-| NOT Exp 													{output::printProductionRule(28);};
-| Exp AND Exp 												{output::printProductionRule(29);};
-| Exp OR Exp									 			{output::printProductionRule(30);};
-| Exp HRELOP Exp 											{output::printProductionRule(31);};
-| Exp LRELOP Exp 											{output::printProductionRule(31);};
-| LPAREN Type RPAREN Exp 									{output::printProductionRule(32);};
+Exp : LPAREN Exp RPAREN 									{$$=$1;};
+| Exp PLUS Exp 												{$$=new Add($1,$3);};
+| Exp MINUS Exp 											{$$=new Sub($1,$3)};
+| Exp MULT Exp 												{$$=new Mul($1,$3)};
+| Exp DEV Exp 												{$$=new Dev($1,$3)};
+| ID 														{$$=$1;
+															 Entry &entry = sym.find_entry($$->id);
+															 if(entry == nullptr)
+															 {
+																errorUndef(yylineno,$$->id);
+																exit(0);
+															 }
+															};
 
+| Call 														{$$=$1};
+| NUM 														{$$=$1};
+| NUM B 													{if (atoi($1->text)>255){
+																errorByteTooLarge(yylineno,$1->text);
+																exit(0);}
+																$$=new Byte(yylineno,$1->text);
+																};
+
+| STRING												 	{$$=$1;};
+| TRUE 														{$$=$1;};
+| FALSE 													{$$=$1;};
+| NOT Exp 													{if ($2->type!=BOOL)
+															 {errorMismatch(yylineno);
+															  exit(0);}
+															  $$=new Bool(yylineno,"");
+															};
+
+| Exp AND Exp 												{if($1->type!=BOOL || $3->type != BOOL){
+															 	errorMismatch(yylineno);
+															  	exit(0);}
+															 $$=new Bool(yylineno,"");
+															};
+
+| Exp OR Exp									 			{if($1->type!=BOOL || $3->type != BOOL){
+															 	errorMismatch(yylineno);
+															  	exit(0);}
+															 $$=new Bool(yylineno,"");
+															 };
+
+| Exp HRELOP Exp 											{if(!$1->is_num()||!$3->is_num()){
+															 	errorMismatch(yylineno);
+															  	exit(0);}
+															$$=new Bool(yylineno,"");
+															};
+
+| Exp LRELOP Exp 											{if(!$1->is_num()||!$3->is_num()){
+															 	errorMismatch(yylineno);
+															  	exit(0);}
+															$$=new Bool(yylineno,"");
+															};
+
+| LPAREN Type RPAREN Exp 									{$$=new Exp($2,$4);};    //cast
+
+
+NT :                                                        {sym.open_table();} //NT-new table
 
 
 
@@ -99,6 +155,6 @@ int main()
 
 int yyerror(const char * message)
 {
-	output::errorSyn(yylineno);
+	errorSyn(yylineno);
 	exit(0);
 }
