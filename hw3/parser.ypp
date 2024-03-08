@@ -12,6 +12,8 @@
 	extern char* yytext;
 	extern int yylineno;
 	int yyerror(const char * message);
+	Symbol_Table sym = Symbol_Table();
+	int nested_whiles = 0;
 %}
 
 %nonassoc INT;
@@ -43,107 +45,205 @@
 
 %%
 
-Program :{Symbol_Table sym=Symbol_Table();} Statements 		{output::printProductionRule(1);};
+Program : Statements 
+{};
 
 
-Statements : Statement 										{output::printProductionRule(2);};
-| Statements Statement 										{output::printProductionRule(3);};
+Statements : Statement 
+{};
+
+| Statements Statement 
+{};
 
 
-Statement : LBRACE NT Statements RBRACE 						{$$=$3;
-																 sym.close_table();};
-| Type ID SC 												{$$=new Node(yylineno,std::move($2->id))
-															 $$->type=$1->type;
-															 sym.insert_node($$);
-															};
-| Type ID ASSIGN Exp SC 									{$$=new exp($1,$2,$4,yylineno);
-															 sym.insert_node($$);
-															 };
-| ID ASSIGN Exp SC 											{Entry *entry=sym.find_entry($1->text);
-															 if(entry==nullptr || entry->is_func)
-															 {
-																errorUndef(yylineno,$1->text);
-																exit(0);
-															 }
-															 $$=new Exp(entry->type,$1,$3,yylineno);
-															 };
-| Call SC 													{output::printProductionRule(8);};
-| RETURN SC 												{output::printProductionRule(9);};
-| IF LPAREN Exp RPAREN Statement 							{output::printProductionRule(10);};
-| IF LPAREN Exp RPAREN Statement ELSE Statement 			{output::printProductionRule(11);};
-| WHILE LPAREN Exp RPAREN Statement 						{output::printProductionRule(12);};
-| BREAK SC 													{output::printProductionRule(13);};
-| CONTINUE SC 												{output::printProductionRule(14);};
+Statement : LBRACE NT Statements RBRACE 						{$$=$3; sym.close_table();};
 
+| Type ID SC 												{$$=new Node(yylineno,std::move($2->text)); $$->type=$1->type; sym.insert_node($$);};
 
-Call : ID LPAREN Exp RPAREN 								{output::printProductionRule(15);};
+| Type ID ASSIGN Exp SC 									{$$=new Exp($1,$2,$4,yylineno); sym.insert_node($$);};
 
+| ID ASSIGN Exp SC 
+{
+	Entry *entry=sym.find_entry($1->text);
+	if(entry==nullptr || entry->is_func)
+	{
+		errorUndef(yylineno,$1->text);
+		exit(0);
+	}
+	$$=new Exp(entry->ret_type,$1,$3,yylineno);
+};
 
-Type : INT 													{output::printProductionRule(16);};
-| BYTE 														{output::printProductionRule(17);};
-| BOOL 														{output::printProductionRule(18);};
+| Call SC
+{$$=$1;};
+
+| RETURN SC 												
+{};
+
+| IF NT LPAREN Exp CB RPAREN Statement {sym.close_table();};
+
+| IF NT LPAREN Exp CB RPAREN Statement ELSE Statement {sym.close_table();};
+
+| WHILE NT LPAREN Exp 	
+{
+	if($4->type != TBOOL)
+	{
+		errorMismatch(yylineno);
+	}
+	nested_whiles++;
+
+} RPAREN Statement {sym.close_table(); nested_whiles--;};
+
+| BREAK SC 
+{
+	if(nested_whiles == 0)
+	{
+		errorUnexpectedBreak(yylineno);
+	}
+};
+
+| CONTINUE SC 
+{
+	if(nested_whiles == 0)
+	{
+		errorUnexpectedContinue(yylineno);
+	}
+};
+
+Call : ID LPAREN Exp RPAREN 
+{
+	Entry *entry = sym.find_entry($1->text);
+	if(entry==nullptr || !entry->is_func)
+	{
+		errorUndefFunc(yylineno,$1->text);
+		exit(0);
+	}
+
+	if($3->type == entry->func_types.at(0) || $3->type == TBYTE && (entry->id == "printi" || entry->id == "readi"))
+	{
+		$$ = new Exp(entry->ret_type,$1,$3,yylineno);
+	}
+	errorPrototypeMismatch(yylineno, entry->id, type_to_string(entry->func_types.at(0)));
+};
+
+Type : INT 	
+{};
+
+| BYTE 
+{};
+
+| BOOL 
+{};
 
 
 Exp : LPAREN Exp RPAREN 									{$$=$1;};
-| Exp PLUS Exp 												{$$=new Add($1,$3);};
-| Exp MINUS Exp 											{$$=new Sub($1,$3)};
-| Exp MULT Exp 												{$$=new Mul($1,$3)};
-| Exp DEV Exp 												{$$=new Dev($1,$3)};
-| ID 														{$$=$1;
-															 Entry &entry = sym.find_entry($$->id);
-															 if(entry == nullptr)
-															 {
-																errorUndef(yylineno,$$->id);
-																exit(0);
-															 }
-															};
 
-| Call 														{$$=$1};
-| NUM 														{$$=$1};
-| NUM B 													{if (atoi($1->text)>255){
-																errorByteTooLarge(yylineno,$1->text);
-																exit(0);}
-																$$=new Byte(yylineno,$1->text);
-																};
+| Exp PLUS Exp 												{$$=new Add($1,$3);};
+
+| Exp MINUS Exp 											{$$=new Sub($1,$3);};
+
+| Exp MULT Exp 												{$$=new Mul($1,$3);};
+
+| Exp DEV Exp 												{$$=new Dev($1,$3);};
+
+| ID 
+{
+	$$=$1;
+	Entry* entry = sym.find_entry($$->text);
+	if(entry == nullptr)
+	{
+		errorUndef(yylineno,$$->text);
+		exit(0);
+	}
+};
+
+| Call 														{$$=$1;};
+
+| NUM 														{$$=$1;};
+
+| NUM B 
+{
+	const char* c = $1->text.c_str();
+	if (atoi(c)>255)
+	{
+		errorByteTooLarge(yylineno,$1->text);
+		exit(0);
+	}
+	$$=new Byte(yylineno,$1->text);
+};
 
 | STRING												 	{$$=$1;};
+
 | TRUE 														{$$=$1;};
+
 | FALSE 													{$$=$1;};
-| NOT Exp 													{if ($2->type!=BOOL)
-															 {errorMismatch(yylineno);
-															  exit(0);}
-															  $$=new Bool(yylineno,"");
-															};
 
-| Exp AND Exp 												{if($1->type!=BOOL || $3->type != BOOL){
-															 	errorMismatch(yylineno);
-															  	exit(0);}
-															 $$=new Bool(yylineno,"");
-															};
+| NOT Exp 
+{
+	if ($2->type!=TBOOL)
+	{
+		errorMismatch(yylineno);
+		exit(0);
+	}
+	$$=new Bool(yylineno,"");
+};
 
-| Exp OR Exp									 			{if($1->type!=BOOL || $3->type != BOOL){
-															 	errorMismatch(yylineno);
-															  	exit(0);}
-															 $$=new Bool(yylineno,"");
-															 };
+| Exp AND Exp
+{
+	if($1->type!=TBOOL || $3->type != TBOOL)
+	{
+		errorMismatch(yylineno);
+		exit(0);
+	}
+	$$=new Bool(yylineno,"");
+};
 
-| Exp HRELOP Exp 											{if(!$1->is_num()||!$3->is_num()){
-															 	errorMismatch(yylineno);
-															  	exit(0);}
-															$$=new Bool(yylineno,"");
-															};
+| Exp OR Exp
+{
+	if($1->type!=TBOOL || $3->type != TBOOL)
+	{
+		errorMismatch(yylineno);
+		exit(0);
+	}
+	$$=new Bool(yylineno,"");
+};
 
-| Exp LRELOP Exp 											{if(!$1->is_num()||!$3->is_num()){
-															 	errorMismatch(yylineno);
-															  	exit(0);}
-															$$=new Bool(yylineno,"");
-															};
+| Exp HRELOP Exp 
+{
+	std::cout << static_cast<int>($1->type) << std::endl;
+	std::cout << static_cast<int>($3->type) << std::endl;
+	if(!$1->is_num()||!$3->is_num())
+	{
+		errorMismatch(yylineno);
+		exit(0);
+	}
+	$$=new Bool(yylineno,"");
+};
 
-| LPAREN Type RPAREN Exp 									{$$=new Exp($2,$4);};    //cast
+| Exp LRELOP Exp
+{
+	std::cout << "1111111" << std::endl;
+	if(!$1->is_num()||!$3->is_num())
+	{
+		errorMismatch(yylineno);
+		exit(0);
+	}
+	$$=new Bool(yylineno,"");
+};
 
+| LPAREN Type RPAREN Exp 									{$$=new Exp($2,$4, yylineno);};    //cast
 
-NT :                                                        {sym.open_table();} //NT-new table
+NT : 
+{sym.open_table();} //NT-new table
 
+CB : 
+{
+	std::string s = type_to_string($-1->type);
+	std::cout << s << std::endl;
+	if($-1->type != TBOOL)
+	{
+		errorMismatch(yylineno);
+	}
+} //CB-check bool
 
 
 %%

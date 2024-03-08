@@ -1,9 +1,8 @@
 %{
-#include "output.hpp"
+#include "hw3_output.hpp"
 #include "Node.hpp"
 #include <string.h>
 #include "parser.tab.hpp"
-
 
 %}
 

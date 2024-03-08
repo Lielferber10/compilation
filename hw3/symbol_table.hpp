@@ -11,7 +11,7 @@ using namespace std;
 
 class Entry
 {
-public:
+    public:
     int offset;
     string id;
     Types ret_type;
@@ -38,7 +38,7 @@ public:
 
 class Table
 {
-public:
+    public:
     vector<Entry> table;
     int offset;
 
@@ -47,7 +47,7 @@ public:
 
 class Symbol_Table
 {
-public:
+    public:
     vector<Table *> stack;
     vector<int> offset_stack;
 

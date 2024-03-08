@@ -9,19 +9,20 @@
 using namespace std;
 using namespace output;
 
+extern int yylineno;
+
 Symbol_Table::Symbol_Table()
 {
-
     stack.push_back(new Table(0));
     vector<Types> vec;
-    vec.push_back(STRING);
-    Entry print(0, "print", VOID, true, vec);
+    vec.push_back(TSTRING);
+    Entry print(0, "print", TVOID, true, vec);
     stack.back()->table.push_back(print);
     vec.clear();
-    vec.push_back(INT);
-    Entry printi(0, "printi", VOID, true, vec);
+    vec.push_back(TINT);
+    Entry printi(0, "printi", TVOID, true, vec);
     stack.back()->table.push_back(printi);
-    Entry readi(0, "readi", INT, true, vec);
+    Entry readi(0, "readi", TINT, true, vec);
     stack.back()->table.push_back(readi);
 }
 
@@ -57,7 +58,7 @@ void Symbol_Table::insert_var(Entry entry)
 {
     if (find_entry(entry.id) != nullptr)
     {
-        cout << "already exists" << endl; // need to replace that
+        errorDef(yylineno, entry.id);
         exit(0);
     }
 
@@ -125,15 +126,15 @@ string type_to_string(Types type)
 {
     switch (type)
     {
-    case BOOL:
+    case TBOOL:
         return "BOOL";
-    case BYTE:
+    case TBYTE:
         return "BYTE";
-    case INT:
+    case TINT:
         return "INT";
-    case VOID:
+    case TVOID:
         return "VOID";
-    case STRING:
+    case TSTRING:
         return "STRING";
     default:
         return "error";
