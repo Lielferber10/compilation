@@ -5,6 +5,7 @@
 	#include <iostream>
 	#include <stdlib.h>
 
+
 	using namespace std;
 	using namespace output;
 
@@ -15,6 +16,7 @@
 	Symbol_Table sym = Symbol_Table();
 	int nested_whiles = 0;
 %}
+
 
 %nonassoc INT;
 %nonassoc BYTE;
@@ -46,7 +48,7 @@
 %%
 
 Program : Statements 
-{};
+{sym.close_table();};
 
 
 Statements : Statement 
@@ -56,11 +58,25 @@ Statements : Statement
 {};
 
 
-Statement : LBRACE NT Statements RBRACE 						{$$=$3; sym.close_table();};
+Statement : NT LBRACE Statements RBRACE 						{$$=$3; sym.close_table();};
 
-| Type ID SC 												{$$=new Node(yylineno,std::move($2->text)); $$->type=$1->type; sym.insert_node($$);};
+| Type ID SC 
+{
+	$$ = new Node(yylineno, std::move($2->text), $1->type);
+	sym.insert_node($$);
+};
 
-| Type ID ASSIGN Exp SC 									{$$=new Exp($1,$2,$4,yylineno); sym.insert_node($$);};
+| Type ID ASSIGN Exp SC	
+{
+	Entry *entry=sym.find_entry($2->text);
+	if(entry != nullptr)
+	{
+		errorDef(yylineno, $2->text);
+		exit(0);
+	}
+	$2->type = $1->type;
+	$$ = new Exp($1,$2,$4,yylineno); sym.insert_node($$);
+};
 
 | ID ASSIGN Exp SC 
 {
@@ -70,7 +86,17 @@ Statement : LBRACE NT Statements RBRACE 						{$$=$3; sym.close_table();};
 		errorUndef(yylineno,$1->text);
 		exit(0);
 	}
-	$$=new Exp(entry->ret_type,$1,$3,yylineno);
+	$1 = new Node(yylineno, entry->id, entry->ret_type);
+	if($1->type == $3->type || ($1->type == TINT && $3->type == TBYTE))
+	{
+		$$=new Exp(entry->ret_type,$1,$3,yylineno);
+	}
+	else
+	{
+		errorMismatch(yylineno);
+		exit(0);
+	}
+	
 };
 
 | Call SC
@@ -79,15 +105,18 @@ Statement : LBRACE NT Statements RBRACE 						{$$=$3; sym.close_table();};
 | RETURN SC 												
 {};
 
-| IF NT LPAREN Exp CB RPAREN Statement {sym.close_table();};
+| IF NT LPAREN Exp CB RPAREN Statement 
+{sym.close_table();};
 
-| IF NT LPAREN Exp CB RPAREN Statement ELSE Statement {sym.close_table();};
+| IF NT LPAREN Exp CB RPAREN Statement ELSE {sym.close_table();} NT Statement 
+{sym.close_table();};
 
 | WHILE NT LPAREN Exp 	
 {
 	if($4->type != TBOOL)
 	{
 		errorMismatch(yylineno);
+		exit(0);
 	}
 	nested_whiles++;
 
@@ -98,6 +127,7 @@ Statement : LBRACE NT Statements RBRACE 						{$$=$3; sym.close_table();};
 	if(nested_whiles == 0)
 	{
 		errorUnexpectedBreak(yylineno);
+		exit(0);
 	}
 };
 
@@ -106,6 +136,7 @@ Statement : LBRACE NT Statements RBRACE 						{$$=$3; sym.close_table();};
 	if(nested_whiles == 0)
 	{
 		errorUnexpectedContinue(yylineno);
+		exit(0);
 	}
 };
 
@@ -117,25 +148,29 @@ Call : ID LPAREN Exp RPAREN
 		errorUndefFunc(yylineno,$1->text);
 		exit(0);
 	}
-
+	$1 = new Node(yylineno, entry->id, entry->ret_type);
 	if($3->type == entry->func_types.at(0) || $3->type == TBYTE && (entry->id == "printi" || entry->id == "readi"))
 	{
-		$$ = new Exp(entry->ret_type,$1,$3,yylineno);
+		$$ = new Node(yylineno, "", entry->ret_type);
 	}
-	errorPrototypeMismatch(yylineno, entry->id, type_to_string(entry->func_types.at(0)));
+	else
+	{
+		errorPrototypeMismatch(yylineno, entry->id, type_to_string(entry->func_types.at(0)));
+		exit(0);
+	}
 };
 
 Type : INT 	
-{};
+{$$ = $1;};
 
 | BYTE 
-{};
+{$$ = $1;};
 
 | BOOL 
-{};
+{$$ = $1;};
 
 
-Exp : LPAREN Exp RPAREN 									{$$=$1;};
+Exp : LPAREN Exp RPAREN 									{$$=$2;};
 
 | Exp PLUS Exp 												{$$=new Add($1,$3);};
 
@@ -147,13 +182,13 @@ Exp : LPAREN Exp RPAREN 									{$$=$1;};
 
 | ID 
 {
-	$$=$1;
-	Entry* entry = sym.find_entry($$->text);
-	if(entry == nullptr)
+	Entry* entry = sym.find_entry($1->text);
+	if(entry == nullptr || entry->is_func)
 	{
-		errorUndef(yylineno,$$->text);
+		errorUndef(yylineno,$1->text);
 		exit(0);
 	}
+	$$ = new Node(yylineno, entry->id, entry->ret_type);
 };
 
 | Call 														{$$=$1;};
@@ -209,8 +244,6 @@ Exp : LPAREN Exp RPAREN 									{$$=$1;};
 
 | Exp HRELOP Exp 
 {
-	std::cout << static_cast<int>($1->type) << std::endl;
-	std::cout << static_cast<int>($3->type) << std::endl;
 	if(!$1->is_num()||!$3->is_num())
 	{
 		errorMismatch(yylineno);
@@ -221,7 +254,6 @@ Exp : LPAREN Exp RPAREN 									{$$=$1;};
 
 | Exp LRELOP Exp
 {
-	std::cout << "1111111" << std::endl;
 	if(!$1->is_num()||!$3->is_num())
 	{
 		errorMismatch(yylineno);
@@ -237,11 +269,10 @@ NT :
 
 CB : 
 {
-	std::string s = type_to_string($-1->type);
-	std::cout << s << std::endl;
-	if($-1->type != TBOOL)
+	if($0->type != TBOOL)
 	{
 		errorMismatch(yylineno);
+		exit(0);
 	}
 } //CB-check bool
 

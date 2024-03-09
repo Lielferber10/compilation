@@ -4,6 +4,8 @@
 #include "hw3_output.hpp"
 #include <vector>
 #include <string>
+#include <iostream>
+
 
 using namespace std;
 using namespace output;
@@ -38,10 +40,21 @@ class Node {
         type=TNONE; 
     };
 
+    Node(int line, string txt, Types type){
+        lineno=line;
+        text=txt;
+        this->type=type; 
+    };
+
     bool is_num(){
         if(type==TINT || type==TBYTE)
             return true;
         return false;
+    }
+
+    void printNode()
+    {
+        std::cout << "line: " << lineno << "  text: " << text << "  type: " << type << endl;
     }
     //virtual ~Node();
 };
@@ -194,10 +207,6 @@ class Exp : public Node{
             errorMismatch(line);
             exit(0);
         }
-        if (new_type->type == TBYTE && exp->type == TINT && std::stoi(exp->text) >= 256)
-        {
-            errorByteTooLarge(std::stoi(new_type->text),std::to_string(line));
-        }
         type=new_type->type;
         lineno=line;
         text=std::move(exp->text);
@@ -207,15 +216,8 @@ class Exp : public Node{
     Exp (Node* type, Node* id, Node* exp, int line)
     {
         bool valid = false;
-        if(type->type == exp->type)
-            valid = true;
-        else if (type->type == TINT && exp->type == TBYTE)
-            valid = true;
-        
-        if (type->type == TBYTE && exp->type == TINT && std::stoi(exp->text) >= 256)
-        {
-            errorByteTooLarge(std::stoi(type->text),std::to_string(line));
-        }
+        if(type->type == exp->type) valid = true;
+        else if (type->type == TINT && exp->type == TBYTE) valid = true;
 
         if (!valid)
         {
@@ -225,7 +227,6 @@ class Exp : public Node{
         this->type=type->type;
         lineno=line;
         text = id->text;
-        
     };
     
     Exp (Types type, Node* id, Node* exp, int line)
@@ -234,12 +235,6 @@ class Exp : public Node{
         if(type==exp->type) valid=true;
         else if (type == TINT && exp->type == TBYTE) valid=true;
         
-        if (type == TBYTE && exp->type == TINT && std::stoi(exp->text) < 256)
-        {
-
-        }
-            valid=true;
-
         if (!valid)
         {
             errorMismatch(line);
@@ -248,10 +243,8 @@ class Exp : public Node{
         this->type=type;
         lineno=line;
         text = id->text;
-        
-        
     }
-
+    
 };
 
 
