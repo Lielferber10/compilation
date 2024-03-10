@@ -17,6 +17,7 @@
 	int nested_whiles = 0;
 %}
 
+%define parse.lac full
 
 %nonassoc INT;
 %nonassoc BYTE;
@@ -58,7 +59,7 @@ Statements : Statement
 {};
 
 
-Statement : NT LBRACE Statements RBRACE 						{$$=$3; sym.close_table();};
+Statement : LBRACE NT Statements RBRACE 						{$$=$3; sym.close_table();};
 
 | Type ID SC 
 {
