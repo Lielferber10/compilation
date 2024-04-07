@@ -12,4 +12,7 @@ class Var
         //Var &getInstance();
         std::string freshVar();
 };
+
+void init_llvm();
+
 #endif
