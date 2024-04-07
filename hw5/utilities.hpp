@@ -11,5 +11,5 @@ class Var
         Var();
         //Var &getInstance();
         std::string freshVar();
-
+};
 #endif
