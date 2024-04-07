@@ -2,6 +2,7 @@
 #define NODE
 
 #include "hw3_output.hpp"
+#include "utilities.hpp"
 #include <vector>
 #include <string>
 #include <iostream>
@@ -20,29 +21,34 @@ class Node {
     public:
     int lineno;
     string text;
+    string var;
     Types type;
     
     Node()
     {
         lineno = -1;
         text = "";
+        var= "";
         type=TNONE; 
     }
     Node(int line){
         lineno=line;
         text="";
+        var= "";
         type=TNONE; 
     };
 
     Node(int line, string txt){
         lineno=line;
         text=txt;
+        var= "";
         type=TNONE; 
     };
 
     Node(int line, string txt, Types type){
         lineno=line;
         text=txt;
+        var= "";
         this->type=type; 
     };
 
@@ -56,7 +62,6 @@ class Node {
     {
         std::cout << "line: " << lineno << "  text: " << text << "  type: " << type << endl;
     }
-    //virtual ~Node();
 };
 
 #define YYSTYPE Node*
@@ -104,7 +109,7 @@ class String : public Node {
 
 class Add :public Node {
     public:
-    Add(Node *a,Node *b)
+    Add(Node *a, Node *b)
     {
         if ((a->type != TINT)&&(a->type != TBYTE))
         {
@@ -122,6 +127,7 @@ class Add :public Node {
         } else type= TBYTE;
         lineno=yylineno;
         text="";
+        var="";
     };
 
     
@@ -148,6 +154,7 @@ class Sub :public Node {
         } else type= TBYTE;
         lineno=yylineno;
         text="";
+        var="";
     }; 
 };
 
@@ -171,6 +178,7 @@ class Mul :public Node {
         } else type= TBYTE;
         lineno=yylineno;
         text="";
+        var="";
     };
 };
 
@@ -194,6 +202,7 @@ class Dev :public Node {
         } else type= TBYTE;
         lineno=yylineno;
         text="";
+        var="";
     };
 };
 
@@ -210,6 +219,7 @@ class Exp : public Node{
         type=new_type->type;
         lineno=line;
         text=std::move(exp->text);
+        var="";
 
     };
 
@@ -227,6 +237,7 @@ class Exp : public Node{
         this->type=type->type;
         lineno=line;
         text = id->text;
+        var="";
     };
     
     Exp (Types type, Node* id, Node* exp, int line)
@@ -243,6 +254,7 @@ class Exp : public Node{
         this->type=type;
         lineno=line;
         text = id->text;
+        var="";
     }
     
 };
