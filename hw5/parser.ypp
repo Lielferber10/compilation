@@ -19,6 +19,8 @@
 	CodeBuffer codeBuffer = CodeBuffer();
 	Var vars = Var();
 	int nested_whiles = 0;
+	vector<string> whilesHeaders;
+	vector<string> whilesNexts;
 %}
 
 %define parse.lac full
@@ -124,6 +126,7 @@ Statement : LBRACE NT Statements RBRACE 						{$$=$3; sym.close_table();};
 	}
 	$2->type = $1->type;
 	$$ = new Exp($1,$2,$4,yylineno); sym.insert_node($$);
+
 	$$->var = $4->var;
 	Entry* entry = find_entry($$->text);
 	codeBuffer.emit("%address = getelementptr [50 x i32], [50 x i32]* %stack, i32 0, i32 " + std::to_string(entry->offset));
@@ -183,7 +186,7 @@ Statement : LBRACE NT Statements RBRACE 						{$$=$3; sym.close_table();};
 {$$=$1;};
 
 | RETURN SC 												
-{};
+{codeBuffer.emit("ret i32 0");};
 
 | IF NT LPAREN Exp CB RPAREN Statement 
 {sym.close_table();};
@@ -191,7 +194,13 @@ Statement : LBRACE NT Statements RBRACE 						{$$=$3; sym.close_table();};
 | IF NT LPAREN Exp CB RPAREN Statement ELSE {sym.close_table();} NT Statement 
 {sym.close_table();};
 
-| WHILE NT LPAREN Exp 	
+| WHILE NT LPAREN
+{
+	string header = vars.freshLabel();
+	whilesHeaders.push_back(header);
+	codeBuffer.emit(header + ":");
+} 
+Exp 	
 {
 	if($4->type != TBOOL)
 	{
@@ -199,8 +208,18 @@ Statement : LBRACE NT Statements RBRACE 						{$$=$3; sym.close_table();};
 		exit(0);
 	}
 	nested_whiles++;
+	$$->next = vars.freshLabel();
+	whilesNexts.push_back($$->next);
 
-} RPAREN Statement {sym.close_table(); nested_whiles--;};
+} RPAREN {codeBuffer.emit($4->true + ":");} Statement
+{
+	whilesHeaders.pop();
+	$4->false = whilesNexts.pop();
+	codeBuffer.emit("br i1 " + $4->var ", label " + $4->true + ", label " + $$->next);
+	codeBuffer.emit($$->next + ":");
+	sym.close_table();
+	nested_whiles--;
+};
 
 | BREAK SC 
 {
@@ -209,6 +228,7 @@ Statement : LBRACE NT Statements RBRACE 						{$$=$3; sym.close_table();};
 		errorUnexpectedBreak(yylineno);
 		exit(0);
 	}
+	codeBuffer.emit("br label " + whilesNexts.pop());
 };
 
 | CONTINUE SC 
@@ -218,6 +238,7 @@ Statement : LBRACE NT Statements RBRACE 						{$$=$3; sym.close_table();};
 		errorUnexpectedContinue(yylineno);
 		exit(0);
 	}
+	codeBuffer.emit("br label " + whilesHeaders.pop());
 };
 
 Call : ID LPAREN Exp RPAREN 
@@ -232,6 +253,37 @@ Call : ID LPAREN Exp RPAREN
 	if($3->type == entry->func_types.at(0) || $3->type == TBYTE && (entry->id == "printi" || entry->id == "readi"))
 	{
 		$$ = new Node(yylineno, "", entry->ret_type);
+		if(entry->id == "printi")
+		{
+			if($3->type == TBYTE)
+			{
+				string value = vars.freshVar();
+				codeBuffer.emit(value + " = zext i8 " + $3->var + " to i32");
+				codeBuffer.emit("call void @printi(i32 " + value + ")");
+			}
+			else if($3->type == TINT)
+			{
+				codeBuffer.emit("call void @printi(i32 " + $3->var + ")");
+			}
+		}
+		else if(entry->id == "readi")
+		{
+			$$->var = vars.freshVar();
+			if($3->type == TBYTE)
+			{
+				string value = vars.freshVar();
+				codeBuffer.emit(value + " = zext i8 " + $3->var + " to i32");
+				codeBuffer.emit($$->var + " = call void @readi(i32 " + value + ")");
+			}
+			else if($3->type == TINT)
+			{
+				codeBuffer.emit($$->var + " = call void @printi(i32 " + $3->var + ")");
+			}
+		}
+		else if(entry->id == "print")
+		{	
+			codeBuffer.emit($$->var + " = call void @print(i8* " + %3->var + ")");
+		}
 	}
 	else
 	{
@@ -267,18 +319,30 @@ Exp : LPAREN Exp RPAREN 									{$$=$2;};
 		codeBuffer.emit(value1 + " = zext i8 " + $1->var + " to i32");
 		codeBuffer.emit(value2 + " = zext i8 " + $3->var + " to i32");
 		codeBuffer.emit($$->var + " = add i32 " + value1 + ", i32 " + value2);
+		if($$->type == TBYTE)
+		{
+			codeBuffer.emit($$->var + " = trunc i32 " + $$->var + " to i8");
+		}
 	}
 	else if($1->type == TBYTE && $3->type == TINT)
 	{
 		string value1 = vars.freshVar();
 		codeBuffer.emit(value1 + " = zext i8 " + $1->var + " to i32");
 		codeBuffer.emit($$->var + " = add i32 " + value1 + ", i32 " + $3->var);
+		if($$->type == TBYTE)
+		{
+			codeBuffer.emit($$->var + " = trunc i32 " + $$->var + " to i8");
+		}
 	}
 	else if($1->type == TINT && $3->type == TBYTE)
 	{
 		string value2 = vars.freshVar();
 		codeBuffer.emit(value2 + " = zext i8 " + $3->var + " to i32");
 		codeBuffer.emit($$->var + " = add i32 " + $3->var + ", i32 " + value2);
+		if($$->type == TBYTE)
+		{
+			codeBuffer.emit($$->var + " = trunc i32 " + $$->var + " to i8");
+		}
 	}
 	
 };
@@ -298,18 +362,30 @@ Exp : LPAREN Exp RPAREN 									{$$=$2;};
 		codeBuffer.emit(value1 + " = zext i8 " + $1->var + " to i32");
 		codeBuffer.emit(value2 + " = zext i8 " + $3->var + " to i32");
 		codeBuffer.emit($$->var + " = sub i32 " + value1 + ", i32 " + value2);
+		if($$->type == TBYTE)
+		{
+			codeBuffer.emit($$->var + " = trunc i32 " + $$->var + " to i8");
+		}
 	}
 	else if($1->type == TBYTE && $3->type == TINT)
 	{
 		string value1 = vars.freshVar();
 		codeBuffer.emit(value1 + " = zext i8 " + $1->var + " to i32");
 		codeBuffer.emit($$->var + " = sub i32 " + value1 + ", i32 " + $3->var);
+		if($$->type == TBYTE)
+		{
+			codeBuffer.emit($$->var + " = trunc i32 " + $$->var + " to i8");
+		}
 	}
 	else if($1->type == TINT && $3->type == TBYTE)
 	{
 		string value2 = vars.freshVar();
 		codeBuffer.emit(value2 + " = zext i8 " + $3->var + " to i32");
 		codeBuffer.emit($$->var + " = sub i32 " + $3->var + ", i32 " + value2);
+		if($$->type == TBYTE)
+		{
+			codeBuffer.emit($$->var + " = trunc i32 " + $$->var + " to i8");
+		}
 	}
 };
 
@@ -328,18 +404,30 @@ Exp : LPAREN Exp RPAREN 									{$$=$2;};
 		codeBuffer.emit(value1 + " = zext i8 " + $1->var + " to i32");
 		codeBuffer.emit(value2 + " = zext i8 " + $3->var + " to i32");
 		codeBuffer.emit($$->var + " = mul i32 " + value1 + ", i32 " + value2);
+		if($$->type == TBYTE)
+		{
+			codeBuffer.emit($$->var + " = trunc i32 " + $$->var + " to i8");
+		}
 	}
 	else if($1->type == TBYTE && $3->type == TINT)
 	{
 		string value1 = vars.freshVar();
 		codeBuffer.emit(value1 + " = zext i8 " + $1->var + " to i32");
 		codeBuffer.emit($$->var + " = mul i32 " + value1 + ", i32 " + $3->var);
+		if($$->type == TBYTE)
+		{
+			codeBuffer.emit($$->var + " = trunc i32 " + $$->var + " to i8");
+		}
 	}
 	else if($1->type == TINT && $3->type == TBYTE)
 	{
 		string value2 = vars.freshVar();
 		codeBuffer.emit(value2 + " = zext i8 " + $3->var + " to i32");
 		codeBuffer.emit($$->var + " = mul i32 " + $3->var + ", i32 " + value2);
+		if($$->type == TBYTE)
+		{
+			codeBuffer.emit($$->var + " = trunc i32 " + $$->var + " to i8");
+		}
 	}
 };
 
@@ -364,18 +452,30 @@ Exp : LPAREN Exp RPAREN 									{$$=$2;};
 		codeBuffer.emit(value1 + " = zext i8 " + $1->var + " to i32");
 		codeBuffer.emit(value2 + " = zext i8 " + $3->var + " to i32");
 		codeBuffer.emit($$->var + " = sdiv i32 " + value1 + ", i32 " + value2);
+		if($$->type == TBYTE)
+		{
+			codeBuffer.emit($$->var + " = trunc i32 " + $$->var + " to i8");
+		}
 	}
 	else if($1->type == TBYTE && $3->type == TINT)
 	{
 		string value1 = vars.freshVar();
 		codeBuffer.emit(value1 + " = zext i8 " + $1->var + " to i32");
 		codeBuffer.emit($$->var + " = sdiv i32 " + value1 + ", i32 " + $3->var);
+		if($$->type == TBYTE)
+		{
+			codeBuffer.emit($$->var + " = trunc i32 " + $$->var + " to i8");
+		}
 	}
 	else if($1->type == TINT && $3->type == TBYTE)
 	{
 		string value2 = vars.freshVar();
 		codeBuffer.emit(value2 + " = zext i8 " + $3->var + " to i32");
 		codeBuffer.emit($$->var + " = sdiv i32 " + $3->var + ", i32 " + value2);
+		if($$->type == TBYTE)
+		{
+			codeBuffer.emit($$->var + " = trunc i32 " + $$->var + " to i8");
+		}
 	}
 };
 
@@ -388,7 +488,8 @@ Exp : LPAREN Exp RPAREN 									{$$=$2;};
 		exit(0);
 	}
 	$$ = new Node(yylineno, entry->id, entry->ret_type);
-	$$->var = $1->var;
+	$$->var = vars.freshVar();
+	codeBuffer.emit($$->var + " = load i32, i32* getelementptr [50 x i32], [50 x i32]* %stack, i32 0, i32 " + std::to_string(entry->offset));
 };
 
 | Call 														{$$=$1;};
@@ -407,7 +508,14 @@ Exp : LPAREN Exp RPAREN 									{$$=$2;};
 	$$->var = $1->text;
 };
 
-| STRING												 	{$$=$1; $$->var = $1->text;};
+| STRING												 	
+{
+	string var = vars.freshStringVar();
+	int len = $1->text.length() + 1;
+	$$=$1;
+	$$->var = "@." + var;
+	emitGlobal($$->var + " = internal constant [" + len + " x i8] c\"" + $1->text + "\\00\"");
+};
 
 | TRUE 														{$$=$1; $$->var = $1->text;};
 

@@ -5,11 +5,12 @@
 
 class Var
 {
-    int reg;
+    int reg1;
+    int reg2;
     
     public:
         Var();
-        //Var &getInstance();
         std::string freshVar();
+        std::string freshStringVar();
 };
 #endif

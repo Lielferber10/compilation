@@ -4,14 +4,15 @@ using namespace std;
 
 Var::Var()
 {
-    reg = 0;
+    reg1 = 0;
+    reg2 = 0;
 }
 
-//Var &Var::getInstance(){
-//    Var instance;
-//    return instance;
-//}
 
 string Var::freshVar(){
-    return "%t_" + to_string(reg++);
+    return "%t_" + to_string(reg1++);
 }
+
+string Var::freshStringVar(){
+    return "%q" + to_string(reg2++);
+};
