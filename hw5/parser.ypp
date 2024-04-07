@@ -56,34 +56,7 @@
 
 Program : 
 {
-	codeBuffer.emit("define i32 @main(){");
-	codeBuffer.emit("%stack = alloca [50 x i32]");
-	codeBuffer.emit("declare i32 @scanf(i8*, ...)
-declare i32 @printf(i8*, ...)
-declare void @exit(i32)
-@.int_specifier_scan = constant [3 x i8] c"%d\00"
-@.int_specifier = constant [4 x i8] c"%d\0A\00"
-@.str_specifier = constant [4 x i8] c"%s\0A\00"
-
-define i32 @readi(i32) {
-    %ret_val = alloca i32
-    %spec_ptr = getelementptr [3 x i8], [3 x i8]* @.int_specifier_scan, i32 0, i32 0
-    call i32 (i8*, ...) @scanf(i8* %spec_ptr, i32* %ret_val)
-    %val = load i32, i32* %ret_val
-    ret i32 %val
-}
-
-define void @printi(i32) {
-    %spec_ptr = getelementptr [4 x i8], [4 x i8]* @.int_specifier, i32 0, i32 0
-    call i32 (i8*, ...) @printf(i8* %spec_ptr, i32 %0)
-    ret void
-}
-
-define void @print(i8*) {
-    %spec_ptr = getelementptr [4 x i8], [4 x i8]* @.str_specifier, i32 0, i32 0
-    call i32 (i8*, ...) @printf(i8* %spec_ptr, i8* %0)
-    ret void
-}");
+	init_llvm();
 
 } Statements 
 {
@@ -191,7 +164,7 @@ Statement : LBRACE NT Statements RBRACE 						{$$=$3; sym.close_table();};
 | IF NT LPAREN Exp CB RPAREN Statement 
 {sym.close_table();};
 
-| IF NT LPAREN Exp CB RPAREN Statement ELSE {sym.close_table();} NT Statement 
+| IF NT LPAREN Exp CB RPAREN Statement N ELSE {sym.close_table();} NT Statement 
 {sym.close_table();};
 
 | WHILE NT LPAREN
@@ -587,7 +560,7 @@ Exp : LPAREN Exp RPAREN 									{$$=$2;};
 	$$->var = vars.freshVar();
 	if($1->type == TINT && $3->type == TINT)
 	{
-		codeBuffer.emit($$->var + " = sdiv i32 " + $1->var + ", i32 " + $3->var);
+		codeBuffer.emit($$->var + " = or i32 " + $1->var + ", i32 " + $3->var);
 };
 
 | Exp HRELOP Exp 
@@ -648,8 +621,14 @@ CB :
 		errorMismatch(yylineno);
 		exit(0);
 	}
+	codeBuffer.emit($4->true_label + ":");
 } //CB-check bool
 
+N :
+{
+	$0->next_label=codeBuffer.freshLabel();
+	codeBuffer.emit("goto " + $0.next_label);
+}
 
 %%
 
