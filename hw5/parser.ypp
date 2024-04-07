@@ -181,15 +181,15 @@ Exp
 		exit(0);
 	}
 	nested_whiles++;
-	$$->next = vars.freshLabel();
+	$$->next_label = vars.freshLabel();
 	whilesNexts.push_back($$->next);
 
-} RPAREN {codeBuffer.emit($4->true + ":");} Statement
+} RPAREN {codeBuffer.emit($4->true_label + ":");} Statement
 {
 	whilesHeaders.pop();
-	$4->false = whilesNexts.pop();
-	codeBuffer.emit("br i1 " + $4->var ", label " + $4->true + ", label " + $$->next);
-	codeBuffer.emit($$->next + ":");
+	$4->false_label = whilesNexts.pop();
+	codeBuffer.emit("br i1 " + $4->var ", label " + $4->true_label + ", label " + $$->next_label);
+	codeBuffer.emit($$->next_label + ":");
 	sym.close_table();
 	nested_whiles--;
 };
@@ -503,14 +503,6 @@ Exp : LPAREN Exp RPAREN 									{$$=$2;};
 	}
 	$$=new Bool(yylineno,"");
 
-	if($2->var == "true")
-	{
-		$$->var = "false";
-	}
-	else if($2->var == "false")
-	{
-		$$->var = "true";
-	}
 };
 
 | Exp AND Exp
@@ -522,18 +514,6 @@ Exp : LPAREN Exp RPAREN 									{$$=$2;};
 	}
 	$$=new Bool(yylineno,"");
 
-	if($1->var == "false")
-	{
-		$$->var = "false";
-	}
-	else if($1->var == "true" && $3->var == "false")
-	{
-		$$->var = "false";
-	}
-	else if($1->var == "true" && $3->var == "true")
-	{
-		$$->var = "true";
-	}
 };
 
 | Exp OR Exp
@@ -545,22 +525,6 @@ Exp : LPAREN Exp RPAREN 									{$$=$2;};
 	}
 	$$=new Bool(yylineno,"");
 
-	if($1->val == "true")
-	{
-		$$->val = "true";
-	}
-	else if($1->val == "false" && $3->val == "true")
-	{
-		$$->val = "true";
-	}
-	else if($1->val == "false" && $3->val == "false")
-	{
-		$$->val = "false";
-	}
-	$$->var = vars.freshVar();
-	if($1->type == TINT && $3->type == TINT)
-	{
-		codeBuffer.emit($$->var + " = or i32 " + $1->var + ", i32 " + $3->var);
 };
 
 | Exp HRELOP Exp 
@@ -572,31 +536,6 @@ Exp : LPAREN Exp RPAREN 									{$$=$2;};
 	}
 	$$=new Bool(yylineno,"");
 
-	$$->var = vars.freshVar();
-	if($1->type == TINT && $3->type == TINT)
-	{
-		codeBuffer.emit($$->var + " = sdiv i32 " + $1->var + ", i32 " + $3->var);
-	}
-	else if($1->type == TBYTE && $3->type == TBYTE)
-	{
-		string value1 = vars.freshVar();
-		string value2 = vars.freshVar();
-		codeBuffer.emit(value1 + " = zext i8 " + $1->var + " to i32");
-		codeBuffer.emit(value2 + " = zext i8 " + $3->var + " to i32");
-		codeBuffer.emit($$->var + " = sdiv i32 " + value1 + ", i32 " + value2);
-	}
-	else if($1->type == TBYTE && $3->type == TINT)
-	{
-		string value1 = vars.freshVar();
-		codeBuffer.emit(value1 + " = zext i8 " + $1->var + " to i32");
-		codeBuffer.emit($$->var + " = sdiv i32 " + value1 + ", i32 " + $3->var);
-	}
-	else if($1->type == TINT && $3->type == TBYTE)
-	{
-		string value2 = vars.freshVar();
-		codeBuffer.emit(value2 + " = zext i8 " + $3->var + " to i32");
-		codeBuffer.emit($$->var + " = sdiv i32 " + $3->var + ", i32 " + value2);
-	}
 };
 
 | Exp LRELOP Exp
@@ -609,7 +548,11 @@ Exp : LPAREN Exp RPAREN 									{$$=$2;};
 	$$=new Bool(yylineno,"");
 };
 
-| LPAREN Type RPAREN Exp 									{$$=new Exp($2,$4, yylineno);};    //cast
+| LPAREN Type RPAREN Exp 									
+{
+	$$=new Exp($2,$4, yylineno);
+
+}; //cast
 
 NT : 
 {sym.open_table();} //NT-new table
@@ -622,12 +565,13 @@ CB :
 		exit(0);
 	}
 	codeBuffer.emit($4->true_label + ":");
+	
 } //CB-check bool
 
 N :
 {
-	$0->next_label=codeBuffer.freshLabel();
-	codeBuffer.emit("goto " + $0.next_label);
+	$$->next_label = codeBuffer.freshLabel();
+	codeBuffer.emit("br label " + $$.next_label);
 }
 
 %%
