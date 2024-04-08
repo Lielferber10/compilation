@@ -6,6 +6,7 @@ Var::Var()
 {
     reg1 = 0;
     reg2 = 0;
+    reg3 = 0;
 }
 
 
@@ -17,18 +18,21 @@ string Var::freshStringVar(){
     return "%q_" + to_string(reg2++);
 }
 
+string Var::freshLabel(){
+    return "%l_" + to_string(reg3++);
+}
 
 void init_llvm(){
-    CodeBuffer &codeBuffer = CodeBuffer.instance();
+    CodeBuffer &codeBuffer = CodeBuffer::instance();
     codeBuffer.emit("define i32 @main(){");
-    codeBuffer.emit("%stack = alloca [50 x i32]");
+    codeBuffer.emit("%%stack = alloca [50 x i32]");
     codeBuffer.emit("declare i32 @scanf(i8*, ...)");
     codeBuffer.emit("declare i32 @printf(i8*, ...)");
     codeBuffer.emit("declare void @exit(i32)");
     codeBuffer.emit("@.DIV_BY_ZERO_ERROR = internal constant [23 x i8] c\"Error division by zero\\00\"");
-    codeBuffer.emit("@.int_specifier_scan = constant [3 x i8] c"%d\00"");
-    codeBuffer.emit("@.int_specifier = constant [4 x i8] c"%d\0A\00"");
-    codeBuffer.emit("@.str_specifier = constant [4 x i8] c"%s\0A\00"");
+    codeBuffer.emit("@.int_specifier_scan = constant [3 x i8] c\"%%d\00\"");
+    codeBuffer.emit("@.int_specifier = constant [4 x i8] c\"%%d\0A\00\"");
+    codeBuffer.emit("@.str_specifier = constant [4 x i8] c\"%%s\0A\00\"");
 
     codeBuffer.emit("define i32 @readi(i32) {");
     codeBuffer.emit("%ret_val = alloca i32");
