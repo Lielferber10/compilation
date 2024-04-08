@@ -530,7 +530,7 @@ Exp : LPAREN Exp RPAREN 									{$$=$2;};
 	codeBuffer.emit("br i1 " + $1->var + ", label " + $$->false_label + ", label " + $$->true_label);
 };
 
-| Exp AND Exp
+| Exp AND {codeBuffer.emit(($1)->true_label + ":");} Exp
 {
 	if($1->type!=TBOOL || $3->type != TBOOL)
 	{
@@ -550,7 +550,7 @@ Exp : LPAREN Exp RPAREN 									{$$=$2;};
 
 };
 
-| Exp OR Exp
+| Exp OR {codeBuffer.emit(($1)->false_label + ":");} Exp
 {
 	if($1->type!=TBOOL || $3->type != TBOOL)
 	{
